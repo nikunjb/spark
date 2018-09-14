@@ -23,7 +23,7 @@ import org.apache.spark.{SparkConf, SparkContext, SparkFunSuite}
 import org.apache.spark.rdd.{RDD, RDDOperationScope}
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.ui.{UIUtils => SparkUIUtils}
-import org.apache.spark.util.ManualClock
+import org.apache.spark.util.{ManualClock, Utils}
 
 /**
  * Tests whether scope information is passed from DStream operations to RDDs correctly.
@@ -41,6 +41,10 @@ class DStreamScopeSuite
     ssc = new StreamingContext(new SparkContext(conf), batchDuration)
 
     assertPropertiesNotSet()
+
+    val checkpointDir = Utils.createTempDir(namePrefix = this.getClass.getSimpleName()).toString
+    logDebug(s"Using checkpoint directory $checkpointDir")
+    ssc.checkpoint(checkpointDir)
   }
 
   override def afterEach(): Unit = {
