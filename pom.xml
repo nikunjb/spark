@@ -26,7 +26,7 @@
   </parent>
   <groupId>org.apache.spark</groupId>
   <artifactId>spark-parent_2.12</artifactId>
-  <version>3.0.0</version>
+  <version>3.0.0-cq</version>
   <packaging>pom</packaging>
   <name>Spark Project Parent POM</name>
   <url>http://spark.apache.org/</url>
@@ -2970,6 +2970,13 @@
         <extensions>true</extensions>
       </plugin>
     </plugins>
+    <extensions>
+      <extension>
+        <groupId>org.springframework.build</groupId>
+        <artifactId>aws-maven</artifactId>
+        <version>5.0.0.RELEASE</version>
+      </extension>
+    </extensions>
   </build>
 
   <profiles>
@@ -3220,4 +3227,16 @@
       </properties>
     </profile>
   </profiles>
+  <distributionManagement>
+    <repository>
+      <id>maven-s3-release-repo-deploy</id>
+      <name>AWS Release Repository</name>
+      <url>s3://repository.stealthsec.com/releases</url>
+    </repository>
+    <snapshotRepository>
+      <id>maven-s3-snapshot-repo-deploy</id>
+      <name>AWS Snapshot Repository</name>
+      <url>s3://repository.stealthsec.com/snapshots</url>
+    </snapshotRepository>
+  </distributionManagement>
 </project>
