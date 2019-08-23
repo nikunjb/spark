@@ -88,10 +88,30 @@ pipeline {
         unstash 'tar'
 
         s3Upload(
-          path: "build/${MODULE_NAME}/${GIT_BRANCH}/",
-          bucket:'xangent-packages',
-          includePathPattern:'spark-*-bin-*.tgz'
+            path: "build/${MODULE_NAME}/${GIT_BRANCH}/",
+            bucket: 'xangent-packages',
+            includePathPattern: 'spark-*-bin-*.tgz'
         )
+      }
+    }
+
+    stage('Publish to Maven Repo') {
+      when { branch '*-cq' }
+
+      agent {
+        docker {
+          image 'maven:3-alpine'
+          label 'docker-pipeline'
+        }
+      }
+
+      options {
+        withAWS(region: 'us-west-2')
+      }
+
+      steps {
+        unstash 'tar'
+        sh 'mvn jar:jar deploy:deploy'
       }
     }
 
