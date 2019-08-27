@@ -23,47 +23,55 @@ pipeline {
     }
 
     stage('Build') {
+      when { not { branch '*-cq' } }
+
       agent {
         docker {
-          image 'maven:3-jdk-8'
+          image 'maven:3.5.4-jdk-8'
           label 'docker-pipeline'
         }
       }
 
       steps {
-        sh 'wget https://downloads.lightbend.com/scala/2.13.0/scala-2.13.0.tgz'
+        sh 'wget -O scala-2.13.0.tgz https://downloads.lightbend.com/scala/2.13.0/scala-2.13.0.tgz'
         sh 'tar xf scala-2.13.0.tgz'
         sh 'export SCALA_HOME=scala-2.13.0'
         sh 'export PATH=$PATH:$SCALA_HOME/bin'
-        sh 'build/mvn -Pkubernetes -Phadoop-2.7 -Pyarn -Pflume clean package -DskipTests'
+        sh 'build/mvn --batch-mode -Pkubernetes -Phadoop-2.7 -Pyarn -Pflume clean package -DskipTests'
 
         stash name: 'build'
       }
     }
 
-//    stage('Test') {
-//      agent {
-//        docker {
-//          image 'maven'
-//          label 'docker'
-//        }
-//      }
-//      steps {
-//        unstash 'build'
-//        sh './dev/run-tests'
-//      }
-//
-//      post {
-//        always {
-//          junit '**/target/surefire-reports/*.xml'
-//        }
-//      }
-//    }
+    stage('Build & Publish') {
+      when { branch '*-cq' }
+
+      agent {
+        docker {
+          image 'maven:3.5.4-jdk-8'
+          label 'docker-pipeline'
+        }
+      }
+
+      options {
+        withAWS(region: 'us-west-2')
+      }
+
+      steps {
+        sh 'wget -O scala-2.13.0.tgz https://downloads.lightbend.com/scala/2.13.0/scala-2.13.0.tgz'
+        sh 'tar xf scala-2.13.0.tgz'
+        sh 'export SCALA_HOME=scala-2.13.0'
+        sh 'export PATH=$PATH:$SCALA_HOME/bin'
+        sh 'build/mvn --batch-mode -Pkubernetes -Phadoop-2.7 -Pyarn -Pflume clean deploy -DskipTests'
+
+        stash name: 'build'
+      }
+    }
 
     stage('Make Distribution') {
       agent {
         docker {
-          image 'maven'
+          image 'maven:3.5.4-jdk-8'
           label 'docker-pipeline'
         }
       }
@@ -92,26 +100,6 @@ pipeline {
             bucket: 'xangent-packages',
             includePathPattern: 'spark-*-bin-*.tgz'
         )
-      }
-    }
-
-    stage('Publish to Maven Repo') {
-      when { branch '*-cq' }
-
-      agent {
-        docker {
-          image 'maven:3-alpine'
-          label 'docker-pipeline'
-        }
-      }
-
-      options {
-        withAWS(region: 'us-west-2')
-      }
-
-      steps {
-        unstash 'tar'
-        sh 'mvn jar:jar deploy:deploy'
       }
     }
 
