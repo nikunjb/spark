@@ -111,11 +111,19 @@ pipeline {
 
         script {
           dir('dist') {
-            sh """
-            \$(aws ecr get-login --region $REGISTRY_REGION --registry-ids $REGISTRY_ID --no-include-email)
-            docker build . -t $IMAGE_NAME:$BUILD_VERSION -f kubernetes/dockerfiles/spark/Dockerfile
-            docker push $IMAGE_NAME:$BUILD_VERSION
-            """
+            script {
+              if (env.BRANCH_NAME.endsWith("-cq")) {
+                latestTag = "-t $IMAGE_NAME:${env.BRANCH_NAME}-latest"
+              } else {
+                latestTag = ""
+              }
+
+              sh """
+              \$(aws ecr get-login --region $REGISTRY_REGION --registry-ids $REGISTRY_ID --no-include-email)
+              docker build . -t $IMAGE_NAME:$BUILD_VERSION $latestTag -f kubernetes/dockerfiles/spark/Dockerfile
+              docker push $IMAGE_NAME
+              """
+            }
           }
         }
       }
