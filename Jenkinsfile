@@ -7,7 +7,9 @@ pipeline {
     MODULE_NAME = 'spark'
     REGISTRY_ID = '739344182600'
     REGISTRY_REGION = 'us-west-2'
-    IMAGE_NAME = "${REGISTRY_ID}.dkr.ecr.${REGISTRY_REGION}.amazonaws.com/cequence/spark"
+    ECR_IMAGE_NAME = "${REGISTRY_ID}.dkr.ecr.${REGISTRY_REGION}.amazonaws.com/cequence/spark"
+    GITLAB_IMAGE_NAME = "registry.gitlab.com/cequence/cqai/images/spark"
+    GITLAB_REGISTRY_CREDS = credentials('gitlab-publish-cqai-images')
   }
 
   stages {
@@ -96,32 +98,34 @@ pipeline {
         unstash 'tar'
 
         s3Upload(
-            path: "build/${MODULE_NAME}/${GIT_BRANCH}/",
-            bucket: 'xangent-packages',
-            includePathPattern: 'spark-*-bin-*.tgz'
+                path: "build/${MODULE_NAME}/${GIT_BRANCH}/",
+                bucket: 'xangent-packages',
+                includePathPattern: 'spark-*-bin-*.tgz'
         )
       }
     }
-
-    stage('Publish to ECR') {
+    stage('Publish to Docker Registries') {
       agent { label 'docker-pipeline' }
-
       steps {
         unstash 'dist'
 
         script {
           dir('dist') {
             script {
+              def GITLAB_BUILD_IMAGE_NAME = "${GITLAB_IMAGE_NAME}/${env.BRANCH_NAME}:latest".toLowerCase()
               if (env.BRANCH_NAME.endsWith("-cq")) {
-                latestTag = "-t $IMAGE_NAME:${env.BRANCH_NAME}-latest"
+                latestTag = "-t ${ECR_IMAGE_NAME}:${env.BRANCH_NAME}-latest"
               } else {
                 latestTag = ""
               }
 
               sh """
-              \$(aws ecr get-login --region $REGISTRY_REGION --registry-ids $REGISTRY_ID --no-include-email)
-              docker build . -t $IMAGE_NAME:$BUILD_VERSION $latestTag -f kubernetes/dockerfiles/spark/Dockerfile
-              docker push $IMAGE_NAME
+              docker build . -t ${GITLAB_BUILD_IMAGE_NAME} -t ${ECR_IMAGE_NAME}:${BUILD_VERSION} ${latestTag} -f kubernetes/dockerfiles/spark/Dockerfile             
+    
+              \$(aws ecr get-login --region ${REGISTRY_REGION} --registry-ids ${REGISTRY_ID} --no-include-email)
+              docker login -u ${GITLAB_REGISTRY_CREDS_USR} -p ${GITLAB_REGISTRY_CREDS_PSW} registry.gitlab.com
+              docker push ${GITLAB_BUILD_IMAGE_NAME}
+              docker push ${ECR_IMAGE_NAME}
               """
             }
           }
@@ -129,7 +133,6 @@ pipeline {
       }
     }
   }
-
   post {
     always {
       script {
